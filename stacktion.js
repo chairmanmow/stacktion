@@ -1,5 +1,5 @@
 /*
-	stacker : clone of ios game stack;
+	stacktion : clone of some stacking game for phone
 		stack tiles on top of the pile as they go back and forth.  hit spacebar to place.
 		tile that overlaps the top of the stack will get placed on stack and size of next tile will change
 		get 4 or more perfect stacks in a row and the tile will get bigger;
