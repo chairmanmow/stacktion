@@ -1,2 +1,2 @@
 # stacktion
-Stack as many things as possible
+Stack as many things as possible on Synchronet
