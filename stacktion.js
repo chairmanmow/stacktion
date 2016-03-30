@@ -1,17 +1,30 @@
 /*
-	stackion : clone of some stacking game from my phone
+	stacker : clone of ios game stack;
 		stack tiles on top of the pile as they go back and forth.  hit spacebar to place.
 		tile that overlaps the top of the stack will get placed on stack and size of next tile will change
 		get 4 or more perfect stacks in a row and the tile will get bigger;
 */
 
+
+//libs
+load("sbbsdefs.js");
 load("frame.js");
+load("json-client.js");
+// **** high score stuff ****
+var root = js.exec_dir;
+var server_file = new File(file_cfgname(root, "stacktionServer.ini"));
+server_file.open('r',true);
+var serverAddr=server_file.iniGetValue(null,"host","localhost");
+var serverPort=server_file.iniGetValue(null,"port",10088);
+server_file.close();
+var highScores,myHighScore;
+var db = new JSONClient(serverAddr,serverPort);
 
 
 var shaders = ['\1H\1K','\1N\1W','\1H\1W','\1H\1Y','\1N\1Y','\1N\1G','\1H\1G','\1H\1C','\1N\1C','\1H\1B','\1N\1B','\1N\1M','\1H\1M','\1H\1R','\1N\1R'];
 //game control
 
-var db = false; //debugging mode
+var dbug = false; //debugging mode
 var speed = 200; //ms control input rate
 var go = true;  // loop exit
 var startTileSize = 70;
@@ -43,50 +56,18 @@ function Game(){
 	}
 	this.stack = [[stackOffsetL,stackOffsetR]];
 	var initStackString = drawStackString(this.stack[this.stack.length - 1],'&');
-	this.stackStr = initStackString + initStackString;
+	this.stackStr = initStackString + initStackString + initStackString;
 	this.over = false;
 	this.swing = 1;
 }
 
-function main(){
-		var game = new Game();
-		initFrames(game);
-		debugGraphics();
-		while(go){
-			var userInput = console.inkey(null,speed);
-			game = gameCycle(game,userInput);
-			if(game.over){
-				bottomFeedback.clear();
-				bottomFeedback.center('Press Q to Quit or Any key to play again');
-				bottomFeedback.cycle();
-				var response = console.getkey();
-				if(response.toUpperCase() != "Q"){
-						game = new Game();
-						speed = 200;
-						invalidateFrames();
-						stackFrame.clear();
-						cycleFrames(); 
-						setFramesInit();
-						initFrames(game);
-						stackFrame.scroll(0,-1); 
-						cycleFrames();
-					} else {
-						go = false;
-					}
-
-				}
-		}
-
-}
-
+//main loop switch
 function gameCycle(game,inkey){
 	switch (inkey){
-		case ' ' :  //spaceBar places tile
-			
+		case ' ' :  //spaceBar places tile		
 			game = processMove(game);
-			//debugGraphics();
+		  	debugGraphics();
 			return game;
-			//break; // hopefully by not breaking it will continue to default case and move nextTile;
 		case 'Q' :
 			go = false;
 			return game;
@@ -100,11 +81,11 @@ function gameCycle(game,inkey){
 		}
 }
 
-function moveCurrentTile(game){
+function moveCurrentTile(game){ //changes the tile position and cycles frames if no input detected
 	if(game.currentTile.isNew){  
 		// check to see if there are any extra rows on the screen and if the stackFrame needs to be raised, tile moved up a row, and buffer height -
 		invalidateFrames();
-		debug('\1h\1ybuffer frame height -> \1w ' + bufferFrame.height);
+		//debug('\1h\1ybuffer frame height -> \1w ' + bufferFrame.height);
 		if(bufferFrame.height == 1){
 			tileFrame.width = game.tileLength;
 			tileFrame.x = game.currentTile.position[0];
@@ -122,7 +103,7 @@ function moveCurrentTile(game){
 			stackFrame.scroll(0,-3);
 			openFrames();
 			drawFrames();		
-			debug('\1h\1c\r\n new tile added adjusting frame stuff\r\n');
+			//debug('\1h\1c\r\n new tile added adjusting frame stuff\r\n');
 		}		
 	} else {  //move the tile if it's not new //fixme why are stacks getting out of range (negative nums / > 80)
 		if(game.swing == 1 && tileFrame.x + tileFrame.width == 80){ // floating right and hits edge of screen, flip direction
@@ -179,7 +160,6 @@ function addTileToStack(thisTile,game){
 	stackFrame.putmsg(game.stackStr);
 	
 	//debug('shader ' + game.shader + ' val :'  + shaders[game.shader] + " Sample String");
-
 	// *** MAKE UPDATES FOR NEXT MOVE/REFRESH + SCORE; UPDATE GAME OBJECT;
 	game.swing = -(game.swing); // next tile will come the other direction;
 	if(nextTile.position[0] == -1 || nextTile.position[1] < nextTile.position[0]){
@@ -218,13 +198,183 @@ function drawStackString(stackSubArr,char){  // takes an array representing a ti
 	var stackString = Array(stackSubArr[0]).join(' ') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + Array(80 - stackSubArr[1] + 1).join(' ');
 	//debug(stackString.length + ' stackStr len from arr -> ' + JSON.stringify(stackSubArr));
 	} catch(err){
-	debug(err + 'composing stack string from ' + JSON.stringify(stackSubArr));
-	stackString = "ERROR";
+	//debug(err + 'composing stack string from ' + JSON.stringify(stackSubArr));
+	//stackString = "ERROR";
 	}
 	return stackString +'\r\n';
 }
 
+function main(){
+	try {
+		getHighScores();
+		debug('high scores ' + JSON.stringify(highScores));
+		myHighScore = getPlayerScores();
+		debug('my high score ' + JSON.stringify(myHighScore));
+		var game = new Game();
+		initFrames(game);
+		showHighScores();
+		topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
+		bottomFeedback.center('Space to place tile -- "Q" will quit');
+		stackFrame.putmsg(game.stackStr);
+		debugGraphics();
+		while(go){
+			var userInput = console.inkey(null,speed);
+			game = gameCycle(game,userInput);
+			if(game.over){  // fixme : new-game first line doesn't align right with tile frame even though values seem right
+				updateScores(game);
+				bottomFeedback.clear();
+				bottomFeedback.center('GAME OVER!');
+				//debug(JSON.stringify(game));
+				bottomFeedback.cycle();
+				console.getkey();
+				game = new Game();
+				showHighScores();
+				stackFrame.clear();
+				stackFrame.invalidate();			
+				initFrames(game);
+				debugGraphics();
+				bottomFeedback.clear();
+				topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
+				bottomFeedback.center('Space to place tile -- "Q" will quit');
+				stackFrame.clear();
+				stackFrame.putmsg(game.stackStr);
+				cycleFrames(); 
+				}
+		}
+	}
 
+	catch(err){
+		console.pause();
+
+		console.write('\1rERROR line \1w ' + err.lineNumber + ' \1r' + err + '\n')
+		console.write(JSON.stringify(game));
+		console.pause();
+	}
+}
+
+function showHighScores(){
+	clearFrames();
+	invalidateFrames();
+	setFramesInit();	
+	openFrames();
+	drawFrames();
+	topFeedback.center('HIGH SCORES');
+	bufferFrame.center("\1h\1y *** " + '\1h\1gGET IN ON THE STACKTION!!!' + "\1h\1y *** \r\n");
+	bufferFrame.putmsg(constructHsString());
+	stackFrame.clear();
+	stackFrame.center("\1bYou've played \1h\1r" + myHighScore.stats.tries + '\1b times' + ' and your high score is \1h\1r' + myHighScore.stats.hi +'\1b rows');
+	stackFrame.scroll(0,-2);
+	bottomFeedback.clear();
+	bottomFeedback.center('Press Q to Quit or Any key to play');
+	cycleFrames();
+	var response = console.getkey();
+	if(response.toUpperCase() != "Q"){
+			clearFrames();
+			invalidateFrames();
+			speed = 200;
+			stackFrame.clear();
+			bottomFeedback.clear();
+			bufferFrame.clear();
+			topFeedback.clear();
+			cycleFrames();
+		} else {
+			go = false;
+		}
+};
+function getHighScores(){
+	highScores = db.read("STACKTION","STACKTION.HISCORES",1);
+	db.cycle();
+
+	if(highScores == undefined){
+	    bufferFrame.center("Creating High Score File");
+	    var blankArray = [];
+	    db.write("STACKTION","STACKTION.HISCORES",blankArray,2);
+	    db.cycle();
+	    highScores = db.read("STACKTION","STACKTION.HISCORES",1);
+	    db.cycle();
+	}
+	highScores.sort(function(a, b){
+	 	return b.score-a.score;
+	})
+}
+
+function getPlayerScores(){
+	var playerScores = db.read("STACKTION","STACKTION.SCORES",1);
+	db.cycle();
+	if(playerScores == undefined){
+	    bufferFrame.center("Creating  Score File");
+	    var blankArray = [];
+	    db.write("STACKTION","STACKTION.SCORES",blankArray,2);
+	    db.cycle();
+	    playerScores = db.read("STACKTION","STACKTION.SCORES",1);
+	    db.cycle();
+	}
+	function findMyHighScore(playerScoresArr){
+		var myScoreObj = {};
+		for(var hsi = 0; hsi < playerScoresArr.length; hsi++){
+			var hsObj = playerScoresArr[hsi];
+			if(hsObj.username == user.alias && hsObj.system == system.name){
+				myScoreObj = hsObj;
+				myScoreObj.index = hsi;
+				//debug('found your high score ')
+				break;
+			}
+		}
+		if(typeof myScoreObj.index == 'undefined'){
+			myScoreObj = {username:user.alias,system:system.name,index:highScores.length,stats:{hi:0,tries:0}};
+			//debug('initializing my score object ' + JSON.stringify(myScoreObj));
+			db.push("STACKTION","STACKTION.SCORES",myScoreObj,2);
+			db.cycle();
+			//debug('pushed myScore to DB')
+			playerScores = db.read("STACKTION","STACKTION.SCORES",1);
+			db.cycle();
+		}
+		return myScoreObj;
+	}
+
+	
+		return findMyHighScore(playerScores);
+	}
+
+function updateScores(game){
+	myHighScore.stats.tries++;
+	if(game.row > myHighScore.stats.hi){
+		myHighScore.stats.hi = game.row;
+	}
+	db.splice("STACKTION","STACKTION.SCORES",myHighScore.index,1,myHighScore,2);
+	db.cycle();
+	getHighScores();
+	var scoreObj = {name:user.alias,system:system.name,score:game.row}
+	if(highScores.length == 0){
+		db.push("STACKTION","STACKTION.HISCORES",scoreObj,2);
+		db.cycle();
+	} else {
+		var updated = false;
+		for(var hs = 0; hs < highScores.length; hs++){
+			if(highScores[hs].score < game.row){
+				topFeedback.clear();
+				topFeedback.center("You are number " + (hs + 1) + " on the high score list!")
+				db.splice("STACKTION","STACKTION.HISCORES",hs,0,scoreObj,2);
+				db.cycle();
+				updated = true;
+				break;
+			}
+		}
+		if(updated == false){
+			topFeedback.clear();
+			topFeedback.center("You are number " + (highScores.length + 1) + " on the high score list!")
+			db.push("STACKTION","STACKTION.HISCORES",scoreObj,2);
+			db.cycle();
+		}
+	}
+	getHighScores();
+}
+function debugGraphics(){ 
+	debug('\1rstack frame height :\1h' + stackFrame.height + ' \1m y pos :\1h' + stackFrame.y + '\1gTile y pos -> \1h' + tileFrame.y);
+	//debug('\1bbuffer frame height ' + bufferFrame.height + '\r\n');
+	//debug('\1gtileFrame width ' +tileFrame.width + '\r\n');
+	//debug('\1mstackFrame height ' +stackFrame.height + '\1h y-pos ---> ' + stackFrame.y + ' \r\n');
+}
 
 function setFramesInit(){
 	topFeedback = new Frame(1,1,80,1,BG_BLUE|WHITE,masterFrame);  // provides feedback @ top of screen
@@ -239,14 +389,24 @@ function initFrames(game) {
 		setFramesInit();
 	} 
 	openFrames();
-	topFeedback.putmsg('Welcome to the game!');
-	bottomFeedback.center('Space Bar places Tile; "Q" to quit.');
-	stackFrame.putmsg(game.stackStr);
-	debug('debugging->');
+	//debug('debugging->');
 	drawFrames();	
 	cycleFrames();
 }
 
+function constructHsString(){
+	var str = "";
+	for(var i = 0; i < bufferFrame.height - 2; i++){
+		var score = highScores[i];
+		if(typeof score == 'undefined'){
+			break;
+		}
+		var offset1 = 30 - score.name.length - (i + 1).toString().length;
+		var offset2 = 30 - score.system.length;
+		str += "\1h\1m" + (i+1) + ". \1h\1b" + score.name + Array(offset1).join(' ') + '   \1n ' + score.system+ Array(offset2).join(' ') + '   \1c Rows : \1h\1w' + score.score +'\r\n';
+	}
+	return str;
+}
 
 function deleteFrames(){
 	for(var f = 0; f < frames.length; f++){
@@ -271,14 +431,20 @@ function invalidateFrames(){
 		frames[fr].invalidate();
 	}
 }
-function cycleFrames(){
-	for(var fr = 0; fr < frames.length; fr++){
-		frames[fr].cycle();
+
+function clearFrames(){
+	for(var fr = 1; fr < frames.length; fr++){
+		frames[fr].clear();
 	}
+	masterFrame.cycle();
 }
 
+
+
+
+
 function debug(message,frame){
-	if(db == true){
+	if(dbug == true){
 		if(!frame){
 			frame = bufferFrame;
 		}
@@ -286,11 +452,9 @@ function debug(message,frame){
 	frame.cycle();
 	}
 }
-function debugGraphics(){
-	debug('\1bbuffer frame height ' + bufferFrame.height + '\r\n');
-	debug('\1gtileFrame width ' +tileFrame.width + '\r\n');
-	debug('\1mstackFrame height ' +stackFrame.height + '\r\n');
-}
 
+function cycleFrames(){
+	masterFrame.cycle();
+}
 
 main()
