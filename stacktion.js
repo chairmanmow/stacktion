@@ -17,11 +17,15 @@ server_file.open('r',true);
 var serverAddr=server_file.iniGetValue(null,"host","localhost");
 var serverPort=server_file.iniGetValue(null,"port",10088);
 server_file.close();
-var highScores,myHighScore;
+var myHighScore, highScores;
 var db = new JSONClient(serverAddr,serverPort);
 
 
-var shaders = ['\1H\1K','\1N\1W','\1H\1W','\1H\1Y','\1N\1Y','\1N\1G','\1H\1G','\1H\1C','\1N\1C','\1H\1B','\1N\1B','\1N\1M','\1H\1M','\1H\1R','\1N\1R'];
+var shaders = ['\1N\1W','\1H\1W','\1H\1Y','\1N\1Y','\1N\1G','\1H\1G','\1H\1C','\1N\1C','\1H\1B','\1N\1B','\1N\1M','\1H\1M','\1H\1R','\1N\1R'];  //help!!! how to use background attributes with these escape sequences \14 for instance doesn't set bg to blue.
+var bgAttr = [BG_BLACK,BG_BLUE,BG_MAGENTA,BG_RED,BG_CYAN,BG_LIGHTGRAY,BG_BROWN];
+//var symbols = ['∞','±','≤','€'];  //help!!! array of extended ascii characters, how to encode?
+var symbols = ['&','#','%','$','=','|','X','G']
+
 //game control
 
 var dbug = false; //debugging mode
@@ -38,6 +42,8 @@ var frames = [masterFrame,topFeedback,bottomFeedback,stackFrame,bufferFrame,tile
 //Game Object constructor
 function Game(){
 	this.shader = 0;
+	this.symbol = 0;
+	this.tileBg = 0;
 	this.streak = 0;
 	this.tileLength = startTileSize;
 	this.currentTile = {
@@ -66,7 +72,7 @@ function gameCycle(game,inkey){
 	switch (inkey){
 		case ' ' :  //spaceBar places tile		
 			game = processMove(game);
-		  	debugGraphics();
+		  	//debugGraphics();
 			return game;
 		case 'Q' :
 			go = false;
@@ -81,12 +87,19 @@ function gameCycle(game,inkey){
 		}
 }
 
+function tileFillCharacterStr(game){
+	return shaders[game.shader] + Array(game.tileLength - 1).join(symbols[game.symbol]);
+}
+
 function moveCurrentTile(game){ //changes the tile position and cycles frames if no input detected
 	if(game.currentTile.isNew){  
 		// check to see if there are any extra rows on the screen and if the stackFrame needs to be raised, tile moved up a row, and buffer height -
-		invalidateFrames();
+		tileFrame.clear();
+		tileFrame.close();
+		tileFrame.invalidate();
 		//debug('\1h\1ybuffer frame height -> \1w ' + bufferFrame.height);
 		if(bufferFrame.height == 1){
+			tileFrame.attr = bgAttr[game.tileBg];
 			tileFrame.width = game.tileLength;
 			tileFrame.x = game.currentTile.position[0];
 			game.currentTile.isNew = false;
@@ -99,12 +112,16 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 			//change the frame size of the tile frame.
 			tileFrame.width = game.tileLength;
 			tileFrame.x = game.currentTile.position[0];
-			game.currentTile .isNew = false;
+			game.currentTile.isNew = false;
 			stackFrame.scroll(0,-3);
 			openFrames();
 			drawFrames();		
 			//debug('\1h\1c\r\n new tile added adjusting frame stuff\r\n');
-		}		
+		}	
+		var tileFrameStr = tileFillCharacterStr(game);		
+		tileFrame.open();
+		tileFrame.draw();
+		tileFrame.center(tileFrameStr);	
 	} else {  //move the tile if it's not new //fixme why are stacks getting out of range (negative nums / > 80)
 		if(game.swing == 1 && tileFrame.x + tileFrame.width == 80){ // floating right and hits edge of screen, flip direction
 			game.swing = -1;
@@ -149,13 +166,24 @@ function addTileToStack(thisTile,game){
 			}
 		}  
 	}
+	if(game.symbol >= symbols.length - 1){
+		game.symbol = 0;
+	} else {
+		game.symbol++;
+	}
+	if(game.tileBg >= bgAttr.length - 1){
+		game.tileBg = 0;
+	} else {
+		game.tileBg = 0;
+	}
+	nextTile.display = symbols[game.symbol];
 	if(game.shader >= shaders.length - 1){
 		game.shader = 0;
 	} else {
 		game.shader++;
 	}
 	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display) + game.stackStr;
-	//stackFrame.clear();
+	stackFrame.clear();
 	//stackFrame.cycle();
 	stackFrame.putmsg(game.stackStr);
 	stackFrame.scroll(0,2);
@@ -167,24 +195,26 @@ function addTileToStack(thisTile,game){
 	//debug('shader ' + game.shader + ' val :'  + shaders[game.shader] + " Sample String");
 	// *** MAKE UPDATES FOR NEXT MOVE/REFRESH + SCORE; UPDATE GAME OBJECT;
 	game.swing = -(game.swing); // next tile will come the other direction;
-	if(nextTile.position[0] == -1 || nextTile.position[1] < nextTile.position[0]){
+	if(nextTile.position[0] == -1 || nextTile.position[1] < nextTile.position[0] || nextTile.position[1] - nextTile.position[0] < 1){
 		game.over = true;
 	} else {
 		game.stack.push(nextTile.position);
-		game.tileLength = nextTile.position[1] - nextTile.position[0] + 1;
+		game.tileLength = nextTile.position[1] - nextTile.position[0] + 1;  //tileWidth
+		var lastTileLength = lastTile[1] - lastTile[0] + 1;
 		if(game.swing == 1){  // swing to right  // check to adjust the starting position of the next tile;
-			game.currentTile = {position:[1,game.tileLength],display:'&'}
+			game.currentTile = {position:[1,1 + game.tileLength - 1],display:'&'}
 		} else { // swing to left
-			game.currentTile = {position:[80-game.tileLength,80],display:'&'}
+			game.currentTile = {position:[80-game.tileLength - 1,80],display:'&'}
 		}
 		game.currentTile.isNew = true;
 		game.row++;
 		//debug('last tile - > : ' + JSON.stringify(lastTile) + '\1h  this tile : ' + JSON.stringify(thisTile.position));
-		if(thisTile.position[0] == lastTile[0] && thisTile.position[1] == lastTile[1 ]){
+		debug('Tile width == ' + game.tileLength + JSON.stringify(thisTile.position) + ' ===  ?' + JSON.stringify(lastTile) + ' last tile len - > ' + lastTileLength + '\n');
+		if(thisTile.position[0] == lastTile[0] && thisTile.position[1] == lastTile[1]){
 			game.streak++;
 			for(var i = 0; i < game.streak && i < 3;i++){
-			console.beep();
-		}
+				console.beep();
+			}
 			if(game.streak >= 3){  // tiles grow on streak;
 				topFeedback.center('Tiles grow!');
 				game.tileLength++;
@@ -193,8 +223,12 @@ function addTileToStack(thisTile,game){
 			game.streak = 0;
 		} // update the game object for moveCurrentTile;
 	}
-	topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
-	speed = parseInt(speed * .97);
+	topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + ' Speed : ' + speed);
+	if(speed > 70){
+	speed = parseInt(speed - 5);
+	} else {
+		speed = parseInt(speed + game.row);
+	}
 	return game;
 }
 
@@ -229,11 +263,15 @@ function main(){
 			var userInput = console.inkey(null,speed);
 			game = gameCycle(game,userInput);
 			if(game.over){  // fixme : new-game first line doesn't align right with tile frame even though values seem right
-				updateScores(game);
 				bottomFeedback.clear();
-				bottomFeedback.center('GAME OVER!');
-				//debug(JSON.stringify(game));
 				bottomFeedback.cycle();
+				bottomFeedback.center('GAME OVER!');
+				updateScores(game);
+				bottomFeedback.scroll(0,-1);
+				topFeedback.cycle();
+				//debug(JSON.stringify(game));
+				//bottomFeedback.cycle();
+				cycleFrames();
 				console.getkey();
 				game = new Game();
 				showHighScores();
@@ -290,7 +328,7 @@ function showHighScores(){
 		}
 };
 function getHighScores(){
-	highScores = db.read("STACKTION","STACKTION.HISCORES",1);
+	highScores= db.read("STACKTION","STACKTION.HISCORES",1);
 	db.cycle();
 
 	if(highScores == undefined){
@@ -352,7 +390,9 @@ function updateScores(game){
 	db.splice("STACKTION","STACKTION.SCORES",myHighScore.index,1,myHighScore,2);
 	db.cycle();
 	getHighScores();
-	var scoreObj = {name:user.alias,system:system.name,score:game.row}
+	var date = new Date(time() * 1000);
+	var dateStr = (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
+	var scoreObj = {name:user.alias,system:system.name,score:game.row,date:dateStr}
 	if(highScores.length == 0){
 		db.push("STACKTION","STACKTION.HISCORES",scoreObj,2);
 		db.cycle();
@@ -361,7 +401,8 @@ function updateScores(game){
 		for(var hs = 0; hs < highScores.length; hs++){
 			if(highScores[hs].score < game.row){
 				topFeedback.clear();
-				topFeedback.center("You are number " + (hs + 1) + " on the high score list!")
+				topFeedback.center("You are number " + (hs + 1) + " on the high score list!");
+				topFeedback.cycle();
 				db.splice("STACKTION","STACKTION.HISCORES",hs,0,scoreObj,2);
 				db.cycle();
 				updated = true;
@@ -389,7 +430,7 @@ function setFramesInit(){
 	bottomFeedback = new Frame(1,console.screen_rows,80,1,BG_BLUE|WHITE,masterFrame);  //provides feedback
 	stackFrame = new Frame(1,bottomFeedback.y - 2,80,2,BG_BLACK|WHITE,masterFrame);  //where the already stacked tiles go
 	bufferFrame = new Frame(1,topFeedback.y + 1, 80,console.screen_rows - stackFrame.height - 3,BG_BLACK|WHITE,masterFrame);  //should be blank in game, use for debug information.  Goes from above tileFrame to below topFeedback
-	tileFrame = new Frame(1,stackFrame.y - 1,startTileSize,1,BG_GREEN|MAGENTA,masterFrame);  //the frame that should resize after every stacked tile and move, one above stack Frame;
+	tileFrame = new Frame(1,stackFrame.y - 1,startTileSize,1,BG_BLACK|MAGENTA,masterFrame);  //the frame that should resize after every stacked tile and move, one above stack Frame;
 }
 
 function initFrames(game) {
@@ -409,9 +450,10 @@ function constructHsString(){
 		if(typeof score == 'undefined'){
 			break;
 		}
-		var offset1 = 30 - score.name.length - (i + 1).toString().length;
-		var offset2 = 30 - score.system.length;
-		str += "\1h\1m" + (i+1) + ". \1h\1b" + score.name + Array(offset1).join(' ') + '   \1n ' + score.system+ Array(offset2).join(' ') + '   \1c Rows : \1h\1w' + score.score +'\r\n';
+		var offset1 = 25 - score.name.length - (i + 1).toString().length;
+		var offset2 = 25 - score.system.length;
+		var offset3 = 10 - score.date.length;
+		str += "\1h\1m" + (i+1) + ". \1h\1b" + score.name + Array(offset1).join(' ') + '   \1n ' + score.system+ Array(offset2).join(' ') + score.date + Array(offset3).join(' ') + '   \1c Rows : \1h\1w' + score.score +'\r\n';
 	}
 	return str;
 }
