@@ -56,7 +56,7 @@ function Game(){
 	}
 	this.stack = [[stackOffsetL,stackOffsetR]];
 	var initStackString = drawStackString(this.stack[this.stack.length - 1],'&');
-	this.stackStr = initStackString + initStackString + initStackString;
+	this.stackStr = initStackString + initStackString;
 	this.over = false;
 	this.swing = 1;
 }
@@ -155,9 +155,14 @@ function addTileToStack(thisTile,game){
 		game.shader++;
 	}
 	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display) + game.stackStr;
-	stackFrame.clear();
-	stackFrame.cycle();
+	//stackFrame.clear();
+	//stackFrame.cycle();
 	stackFrame.putmsg(game.stackStr);
+	stackFrame.scroll(0,2);
+	if(game.row + 3 >= stackFrame.height && bufferFrame.height === 1){
+		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
+		stackFrame.cycle();
+	}
 	
 	//debug('shader ' + game.shader + ' val :'  + shaders[game.shader] + " Sample String");
 	// *** MAKE UPDATES FOR NEXT MOVE/REFRESH + SCORE; UPDATE GAME OBJECT;
@@ -195,6 +200,9 @@ function addTileToStack(thisTile,game){
 
 function drawStackString(stackSubArr,char){  // takes an array representing a tile with two x coords and draws a line padded by blankspace;
 	try{
+	if(stackSubArr[0] == -1){
+		return Array(29).join(' ') + "\1h\1r !!! GAME OVER !!! " + Array(29).join(' '); + '\r\n';
+	}
 	var stackString = Array(stackSubArr[0]).join(' ') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + Array(80 - stackSubArr[1] + 1).join(' ');
 	//debug(stackString.length + ' stackStr len from arr -> ' + JSON.stringify(stackSubArr));
 	} catch(err){
