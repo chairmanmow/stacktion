@@ -21,10 +21,10 @@ var myHighScore, highScores;
 var db = new JSONClient(serverAddr,serverPort);
 
 
-var shaders = ['\1N\1W','\1H\1W','\1H\1Y','\1N\1Y','\1N\1G','\1H\1G','\1H\1C','\1N\1C','\1H\1B','\1N\1B','\1N\1M','\1H\1M','\1H\1R','\1N\1R'];  //help!!! how to use background attributes with these escape sequences \14 for instance doesn't set bg to blue.
+var shaders = ['\1N\1R','\1H\1R','\1H\1Y','\1N\1Y','\1N\1G','\1H\1G','\1H\1C','\1N\1C','\1H\1B','\1N\1B','\1N\1M','\1H\1M','\1H\1R','\1N\1R'];  //help!!! how to use background attributes with these escape sequences \14 for instance doesn't set bg to blue.
 var bgAttr = [BG_BLACK,BG_BLUE,BG_MAGENTA,BG_RED,BG_CYAN,BG_LIGHTGRAY,BG_BROWN];
-//var symbols = ['∞','±','≤','€'];  //help!!! array of extended ascii characters, how to encode?
-var symbols = ['&','#','%','$','=','|','X','G']
+var symbols = [ascii(176),ascii(177),ascii(178),ascii(219)];  //help!!! array of extended ascii characters, how to encode?
+//var symbols = ['&','#','%','$','=','|','X','G']
 
 //game control
 
@@ -61,8 +61,8 @@ function Game(){
 		stackOffsetR = 80 - stackOffsetL;
 	}
 	this.stack = [[stackOffsetL,stackOffsetR]];
-	var initStackString = drawStackString(this.stack[this.stack.length - 1],'&');
-	this.stackStr = initStackString + initStackString;
+	var initStackString = drawStackString(this.stack[this.stack.length - 1],ascii(219));
+	this.stackStr = "\1w\1h" +initStackString + initStackString;
 	this.over = false;
 	this.swing = 1;
 }
