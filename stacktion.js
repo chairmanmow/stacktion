@@ -118,9 +118,7 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 			tileFrame.width = game.tileLength;
 			tileFrame.x = game.currentTile.position[0];
 			game.currentTile.isNew = false;
-			stackFrame.scroll(0,-3);
-			openFrames();
-			drawFrames();		
+			stackFrame.scroll(0,-3);	
 			debug('\1h\1g\r\n creating new tile @ x = ' + tileFrame.x + ' @ width = ' + tileFrame.width);
 		}	
 		var tileFrameStr = tileFillCharacterStr(game);		
@@ -236,7 +234,7 @@ function addTileToStack(thisTile,game){
 	}
 	topFeedback.clear();
 	topFeedback.center("Rows : \1h\1y" + game.row + " \1w      Streak : \1y" + game.streak );
-	cycleFrames();
+	//cycleFrames();
 	//console.getkey();
 		stackFrame.clear();
 	//stackFrame.cycle();
@@ -273,7 +271,10 @@ function drawStackString(stackSubArr,char,bgStr){  // takes an array representin
 
 function main(){
 	try {
+		bufferFrame.center('\1h\1yLoading high scores');
+		cycleFrames();
 		getHighScores();
+		bufferFrame.clear();
 		debug('high scores ' + JSON.stringify(highScores));
 		myHighScore = getPlayerScores();
 		debug('my high score ' + JSON.stringify(myHighScore));
@@ -326,7 +327,8 @@ function main(){
 
 function showHighScores(){
 	clearFrames();
-	invalidateFrames();
+	masterFrame.close();
+	//invalidateFrames();
 	setFramesInit();	
 	openFrames();
 	drawFrames();
