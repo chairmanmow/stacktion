@@ -23,6 +23,7 @@ var db = new JSONClient(serverAddr,serverPort);
 
 var shaders = ['\1N\1R','\1H\1R','\1H\1Y','\1N\1Y','\1N\1G','\1H\1G','\1H\1C','\1N\1C','\1H\1B','\1N\1B','\1N\1M','\1H\1M','\1H\1R','\1N\1R'];  //help!!! how to use background attributes with these escape sequences \14 for instance doesn't set bg to blue.
 var bgAttr = [BG_BLACK,BG_BLUE,BG_MAGENTA,BG_RED,BG_CYAN,BG_LIGHTGRAY,BG_BROWN];
+var bgShaders = ['\0016','\0015','\0010','\0011','\0014','\0017','\0013','\0012'];
 var symbols = [ascii(176),ascii(177),ascii(178),ascii(219)];  //help!!! array of extended ascii characters, how to encode?
 //var symbols = ['&','#','%','$','=','|','X','G']
 
@@ -32,7 +33,7 @@ var dbug = false; //debugging mode
 var startSpeed = 100;
 var speed = startSpeed; //ms control input rate
 var go = true;  // loop exit
-var startTileSize = 70;
+var startTileSize = 58;
 
 //frames
 var masterFrame, topFeedback, bottomFeedback, stackFrame, bufferFrame,tileFrame;
@@ -91,7 +92,7 @@ function gameCycle(game,inkey){
 }
 
 function tileFillCharacterStr(game){
-	return shaders[game.shader] + Array(game.tileLength - 1).join(symbols[game.symbol]);
+	return bgShaders[game.tileBg] + shaders[game.shader] + Array(game.tileLength - 1).join(symbols[game.symbol]);
 }
 
 function moveCurrentTile(game){ //changes the tile position and cycles frames if no input detected
@@ -176,7 +177,7 @@ function addTileToStack(thisTile,game){
 	} else {
 		game.symbol++;
 	}
-	if(game.tileBg >= bgAttr.length - 1){
+	if(game.tileBg >= bgShaders.length - 1){
 		game.tileBg = 0;
 	} else {
 		game.tileBg = 0;
@@ -209,13 +210,14 @@ function addTileToStack(thisTile,game){
 		//debug('last tile - > : ' + JSON.stringify(lastTile) + '\1h  this tile : ' + JSON.stringify(thisTile.position));
 		debug('\r\n\1c\1h incoming tile position \1n' + JSON.stringify(thisTile.position) + ' \1h compared to \1n ' + JSON.stringify(lastTile) + 'on the stack.  Results in an overlap of \1n' + JSON.stringify(nextTile.position));
 		debug('\r\nthe game has detected a next tilelength of ' + game.tileLength + ' . Checking for match'); 
-		if(thisTile.position[1] - thisTile[0] >= lastTile[1] - lastTile[0] || (nextTile.position[0] == lastTile[0] && nextTile.position[1] == lastTile[1])){
+		if(nextTile.position[1] - nextTile[0] >= lastTile[1] - lastTile[0] || (nextTile.position[0] == lastTile[0] && nextTile.position[1] == lastTile[1])){
 			debug('\1gTRUE!')
 			game.streak++;
 			for(var i = 0; i < game.streak && i < 3;i++){
 				console.beep();
 			}
 			if(game.streak >= 3 && game.tileLength < 75 ){  // tiles grow on streak;
+				speed = speed - 15;
 				game.stack[game.stack.length-1[1]] = game.stack[game.stack.length-1[1]] + 1;
 				game.stack[game.stack.length-1[0]] = game.stack[game.stack.length-1[0]] - 1;
 				game.currentTile.position[1] = game.currentTile.position[1]  + 2;
@@ -226,37 +228,41 @@ function addTileToStack(thisTile,game){
 				game.tilelength++;
 			}
 		} else {
+			if(game.streak > 0)
+				speed = speed + 10;
 			debug('\1rFALSE!');
 			game.streak = 0;
 		} // update the game object for moveCurrentTile;
 	}
-	topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + ' Speed : ' + speed);
+	topFeedback.clear();
+	topFeedback.center("Rows : \1h\1y" + game.row + " \1w      Streak : \1y" + game.streak );
 	cycleFrames();
 	//console.getkey();
 		stackFrame.clear();
 	//stackFrame.cycle();
-	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display) + game.stackStr;
+	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display,bgShaders[game.tileBg])  + game.stackStr;
 	stackFrame.putmsg(game.stackStr);
 	stackFrame.scroll(0,2);
 	if(game.row + 3 >= stackFrame.height && bufferFrame.height === 1){
 		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
 		stackFrame.cycle();
 	}
-	if(speed > 55){
+	if(speed > 40 && game.streak < 3){
 	speed = parseInt(speed - 5);
 	} else {
-		speed = parseInt(speed + game.row);
+		if(game.streak < 3)
+			speed = parseInt(speed + game.row);
 	}
 	
 	return game;
 }
 
-function drawStackString(stackSubArr,char){  // takes an array representing a tile with two x coords and draws a line padded by blankspace;
+function drawStackString(stackSubArr,char,bgStr){  // takes an array representing a tile with two x coords and draws a line padded by blankspace;
 	try{
 	if(stackSubArr[0] == -1){
 		return Array(29).join(' ') + "\1h\1r !!! GAME OVER !!! " + Array(29).join(' '); + '\r\n';
 	}
-	var stackString = Array(stackSubArr[0]).join(' ') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + Array(80 - stackSubArr[1] + 1).join(' ');
+	var stackString = Array(stackSubArr[0]).join(' ') + (bgStr || '\0010') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + '\0010' + Array(80 - stackSubArr[1] + 1).join(' ');
 	//debug(stackString.length + ' stackStr len from arr -> ' + JSON.stringify(stackSubArr));
 	} catch(err){
 	//debug(err + 'composing stack string from ' + JSON.stringify(stackSubArr));
@@ -294,18 +300,16 @@ function main(){
 				console.getkey();
 				game = new Game();
 				showHighScores();
-				stackFrame.clear();
-				stackFrame.close();
-				stackFrame.invalidate();
-				stackFrame.cycle();	
+				masterFrame.close();
+				setFramesInit();
 				initFrames(game);
 				debugGraphics();
 				bottomFeedback.clear();
 				topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
 				bottomFeedback.center('Space to place tile -- "Q" will quit');
-				stackFrame.scroll(0,-2);
-				stackFrame.clear();
-				stackFrame.putmsg(game.stackStr);
+				//stackFrame.scroll(0,-2);
+				//stackFrame.clear();
+				//stackFrame.putmsg(game.stackStr);
 				cycleFrames(); 
 				}
 		}
@@ -461,7 +465,7 @@ function initFrames(game) {
 	} 
 	openFrames();
 	//debug('debugging->');
-	stackFrame.clear();
+	//stackFrame.clear();
 	stackFrame.putmsg(game.stackStr); 
 	drawFrames();	
 	cycleFrames();
