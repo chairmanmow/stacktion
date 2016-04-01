@@ -29,7 +29,8 @@ var symbols = [ascii(176),ascii(177),ascii(178),ascii(219)];  //help!!! array of
 //game control
 
 var dbug = false; //debugging mode
-var speed = 200; //ms control input rate
+var startSpeed = 100;
+var speed = startSpeed; //ms control input rate
 var go = true;  // loop exit
 var startTileSize = 70;
 
@@ -47,7 +48,7 @@ function Game(){
 	this.streak = 0;
 	this.tileLength = startTileSize;
 	this.currentTile = {
-		position: [1,startTileSize +1],
+		position: [1,startTileSize + 1],
 		display: "&",//{bg:BG_BLACK,fg:GREEN,char:"&"}
 		isNew: true
 	};
@@ -65,6 +66,7 @@ function Game(){
 	this.stackStr = "\1w\1h" +initStackString + initStackString;
 	this.over = false;
 	this.swing = 1;
+	this.startSwing = 1;
 }
 
 //main loop switch
@@ -83,6 +85,7 @@ function gameCycle(game,inkey){
 		default: 
 			//debug('moving tile ');
 			game = moveCurrentTile(game);
+			//console.getkey();
 			return game;
 		}
 }
@@ -93,6 +96,7 @@ function tileFillCharacterStr(game){
 
 function moveCurrentTile(game){ //changes the tile position and cycles frames if no input detected
 	if(game.currentTile.isNew){  
+		game.startSwing = game.swing;
 		// check to see if there are any extra rows on the screen and if the stackFrame needs to be raised, tile moved up a row, and buffer height -
 		tileFrame.clear();
 		tileFrame.close();
@@ -116,7 +120,7 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 			stackFrame.scroll(0,-3);
 			openFrames();
 			drawFrames();		
-			//debug('\1h\1c\r\n new tile added adjusting frame stuff\r\n');
+			debug('\1h\1g\r\n creating new tile @ x = ' + tileFrame.x + ' @ width = ' + tileFrame.width);
 		}	
 		var tileFrameStr = tileFillCharacterStr(game);		
 		tileFrame.open();
@@ -148,7 +152,7 @@ function addTileToStack(thisTile,game){
 
 	var lastTile = game.stack[game.stack.length - 1];
 	var nextTile = {position:[-1,-1],display:'&',isNew:true};	//isNew flag to check to see whether the frames' height need to be readjusted if it's early in the game
-	for(var i = thisTile.position[0];i < lastTile[1];i++){ //	loop thru the positions in the placed tile and see where they match the top of stack(lastTile);
+	for(var i = thisTile.position[0];i <= lastTile[1];i++){ //	loop thru the positions in the placed tile and see where they match the top of stack(lastTile);
 		if(nextTile.position[0] == -1 && i >= lastTile[0] && i <= lastTile[1]){   //set the low marker for the next Tile
 			nextTile.position[0] = i; 
 		}
@@ -166,6 +170,7 @@ function addTileToStack(thisTile,game){
 			}
 		}  
 	}
+
 	if(game.symbol >= symbols.length - 1){
 		game.symbol = 0;
 	} else {
@@ -182,16 +187,9 @@ function addTileToStack(thisTile,game){
 	} else {
 		game.shader++;
 	}
-	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display) + game.stackStr;
-	stackFrame.clear();
-	//stackFrame.cycle();
-	stackFrame.putmsg(game.stackStr);
-	stackFrame.scroll(0,2);
-	if(game.row + 3 >= stackFrame.height && bufferFrame.height === 1){
-		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
-		stackFrame.cycle();
-	}
 	
+
+	debug('\r\n\1rStart Swing ' + game.startSwing);
 	//debug('shader ' + game.shader + ' val :'  + shaders[game.shader] + " Sample String");
 	// *** MAKE UPDATES FOR NEXT MOVE/REFRESH + SCORE; UPDATE GAME OBJECT;
 	game.swing = -(game.swing); // next tile will come the other direction;
@@ -200,35 +198,56 @@ function addTileToStack(thisTile,game){
 	} else {
 		game.stack.push(nextTile.position);
 		game.tileLength = nextTile.position[1] - nextTile.position[0] + 1;  //tileWidth
-		var lastTileLength = lastTile[1] - lastTile[0] + 1;
+		var lastTileLength = lastTile[1] - lastTile[0];// + 1;
 		if(game.swing == 1){  // swing to right  // check to adjust the starting position of the next tile;
-			game.currentTile = {position:[1,1 + game.tileLength - 1],display:'&'}
+			game.currentTile = {position:[1,game.tileLength + 1],display:'&'}
 		} else { // swing to left
 			game.currentTile = {position:[80-game.tileLength - 1,80],display:'&'}
 		}
 		game.currentTile.isNew = true;
 		game.row++;
 		//debug('last tile - > : ' + JSON.stringify(lastTile) + '\1h  this tile : ' + JSON.stringify(thisTile.position));
-		debug('Tile width == ' + game.tileLength + JSON.stringify(thisTile.position) + ' ===  ?' + JSON.stringify(lastTile) + ' last tile len - > ' + lastTileLength + '\n');
-		if(thisTile.position[0] == lastTile[0] && thisTile.position[1] == lastTile[1]){
+		debug('\r\n\1c\1h incoming tile position \1n' + JSON.stringify(thisTile.position) + ' \1h compared to \1n ' + JSON.stringify(lastTile) + 'on the stack.  Results in an overlap of \1n' + JSON.stringify(nextTile.position));
+		debug('\r\nthe game has detected a next tilelength of ' + game.tileLength + ' . Checking for match'); 
+		if(thisTile.position[1] - thisTile[0] >= lastTile[1] - lastTile[0] || (nextTile.position[0] == lastTile[0] && nextTile.position[1] == lastTile[1])){
+			debug('\1gTRUE!')
 			game.streak++;
 			for(var i = 0; i < game.streak && i < 3;i++){
 				console.beep();
 			}
-			if(game.streak >= 3){  // tiles grow on streak;
+			if(game.streak >= 3 && game.tileLength < 75 ){  // tiles grow on streak;
+				game.stack[game.stack.length-1[1]] = game.stack[game.stack.length-1[1]] + 1;
+				game.stack[game.stack.length-1[0]] = game.stack[game.stack.length-1[0]] - 1;
+				game.currentTile.position[1] = game.currentTile.position[1]  + 2;
 				topFeedback.center('Tiles grow!');
+				nextTile.position[0] = nextTile.position[0] - 1;
+				nextTile.position[1] = nextTile.position[1] + 1;
 				game.tileLength++;
+				game.tilelength++;
 			}
 		} else {
+			debug('\1rFALSE!');
 			game.streak = 0;
 		} // update the game object for moveCurrentTile;
 	}
 	topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + ' Speed : ' + speed);
-	if(speed > 70){
+	cycleFrames();
+	//console.getkey();
+		stackFrame.clear();
+	//stackFrame.cycle();
+	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display) + game.stackStr;
+	stackFrame.putmsg(game.stackStr);
+	stackFrame.scroll(0,2);
+	if(game.row + 3 >= stackFrame.height && bufferFrame.height === 1){
+		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
+		stackFrame.cycle();
+	}
+	if(speed > 55){
 	speed = parseInt(speed - 5);
 	} else {
 		speed = parseInt(speed + game.row);
 	}
+	
 	return game;
 }
 
@@ -258,7 +277,7 @@ function main(){
 		topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
 		bottomFeedback.center('Space to place tile -- "Q" will quit');
 		stackFrame.putmsg(game.stackStr);
-		debugGraphics();
+		//debugGraphics();
 		while(go){
 			var userInput = console.inkey(null,speed);
 			game = gameCycle(game,userInput);
@@ -276,12 +295,15 @@ function main(){
 				game = new Game();
 				showHighScores();
 				stackFrame.clear();
-				stackFrame.invalidate();			
+				stackFrame.close();
+				stackFrame.invalidate();
+				stackFrame.cycle();	
 				initFrames(game);
 				debugGraphics();
 				bottomFeedback.clear();
 				topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
 				bottomFeedback.center('Space to place tile -- "Q" will quit');
+				stackFrame.scroll(0,-2);
 				stackFrame.clear();
 				stackFrame.putmsg(game.stackStr);
 				cycleFrames(); 
@@ -317,7 +339,7 @@ function showHighScores(){
 	if(response.toUpperCase() != "Q"){
 			clearFrames();
 			invalidateFrames();
-			speed = 200;
+			speed = startSpeed;
 			stackFrame.clear();
 			bottomFeedback.clear();
 			bufferFrame.clear();
@@ -430,7 +452,7 @@ function setFramesInit(){
 	bottomFeedback = new Frame(1,console.screen_rows,80,1,BG_BLUE|WHITE,masterFrame);  //provides feedback
 	stackFrame = new Frame(1,bottomFeedback.y - 2,80,2,BG_BLACK|WHITE,masterFrame);  //where the already stacked tiles go
 	bufferFrame = new Frame(1,topFeedback.y + 1, 80,console.screen_rows - stackFrame.height - 3,BG_BLACK|WHITE,masterFrame);  //should be blank in game, use for debug information.  Goes from above tileFrame to below topFeedback
-	tileFrame = new Frame(1,stackFrame.y - 1,startTileSize,1,BG_BLACK|MAGENTA,masterFrame);  //the frame that should resize after every stacked tile and move, one above stack Frame;
+	tileFrame = new Frame(1,stackFrame.y - 1,startTileSize + 1,1,BG_BLACK|MAGENTA,masterFrame);  //the frame that should resize after every stacked tile and move, one above stack Frame;
 }
 
 function initFrames(game) {
@@ -439,6 +461,8 @@ function initFrames(game) {
 	} 
 	openFrames();
 	//debug('debugging->');
+	stackFrame.clear();
+	stackFrame.putmsg(game.stackStr); 
 	drawFrames();	
 	cycleFrames();
 }
