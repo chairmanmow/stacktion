@@ -131,7 +131,7 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 		game.currentTile.position[0] += game.swing;
 		game.currentTile.position[1] += game.swing;
 	}
-	cycleFrames();
+	masterFrame.cycle();
 	return game;
 } 
 
@@ -263,7 +263,7 @@ function drawStackString(stackSubArr,char,bgStr){  // takes an array representin
 function main(){
 	try {
 		bufferFrame.center('\1h\1yLoading high scores');
-		cycleFrames();
+		masterFrame.cycle();
 		getHighScores();
 		bufferFrame.clear();
 		debug('high scores ' + JSON.stringify(highScores));
@@ -274,6 +274,7 @@ function main(){
 		initFrames(game);
 		bottomFeedback.center('Space to place tile -- "Q" will quit');
 		topFeedback.center('YEAH BOYEEE!!!!  BOOMSHAKALAKA!!');
+		masterFrame.cycle();
 		//debugGraphics();
 		while(go){
 			var userInput = console.inkey(null,speed);
@@ -283,7 +284,7 @@ function main(){
 				bottomFeedback.center('GAME OVER!');
 				updateScores(game);
 				bottomFeedback.scroll(0,-1);
-				cycleFrames();
+				masterFrame.cycle();
 				console.getkey();
 				game = new Game();
 				showHighScores();
@@ -295,7 +296,7 @@ function main(){
 				topFeedback.clear();
 				topFeedback.center("YEE HAW YIPPEE KAY AY!");
 				bottomFeedback.center('Space to place tile -- "Q" will quit');
-				cycleFrames(); 
+				masterFrame.cycle(); 
 				}
 		}
 	} catch(err){
@@ -310,7 +311,7 @@ function showHighScores(){
 	clearFrames();
 	masterFrame.close();
 	setFramesInit();	
-	openFrames();
+	masterFrame.open();
 	drawFrames();
 	topFeedback.center('HIGH SCORES');
 	bufferFrame.center("\1h\1y *** " + '\1h\1gGET IN ON THE STACKTION!!!' + "\1h\1y *** \r\n");
@@ -320,16 +321,12 @@ function showHighScores(){
 	stackFrame.scroll(0,-2);
 	bottomFeedback.clear();
 	bottomFeedback.center('Press Q to Quit or Any key to play');
-	cycleFrames();
+	masterFrame.cycle();
 	var response = console.getkey();
 	if(response.toUpperCase() != "Q"){
 			clearFrames();
 			speed = startSpeed;
-			stackFrame.clear();
-			bottomFeedback.clear();
-			bufferFrame.clear();
-			topFeedback.clear();
-			cycleFrames();
+			masterFrame.cycle();
 		} else {
 			go = false;
 		}
@@ -444,10 +441,9 @@ function initFrames(game) {
 	if(typeof stackFrame == 'undefined'){
 		setFramesInit();
 	} 
-	openFrames();
+	clearFrames();
 	stackFrame.putmsg(game.stackStr); 
-	drawFrames();	
-	cycleFrames();
+	//masterFrame.cycle();
 }
 
 function constructHsString(){
@@ -465,15 +461,6 @@ function constructHsString(){
 	return str;
 }
 
-
-function openFrames(){
-	masterFrame.open();
-	topFeedback.open();
-	bottomFeedback.open();
-	stackFrame.open();
-	bufferFrame.open();
-}
-
 function drawFrames(){
 	masterFrame.draw();
 	topFeedback.draw();
@@ -481,19 +468,12 @@ function drawFrames(){
 	stackFrame.draw();
 	bufferFrame.draw();
 }
-
-
 function clearFrames(){
-	masterFrame.clear();
 	topFeedback.clear();
 	bottomFeedback.clear();
 	stackFrame.clear();
 	bufferFrame.clear();
 }
-
-
-
-
 
 function debug(message,frame){
 	if(dbug == true){
@@ -505,8 +485,6 @@ function debug(message,frame){
 	}
 }
 
-function cycleFrames(){
-	masterFrame.cycle();
-}
+
 
 main()
