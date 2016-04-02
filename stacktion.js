@@ -236,14 +236,18 @@ function addTileToStack(thisTile,game){
 	topFeedback.center("Rows : \1h\1y" + game.row + " \1w      Streak : \1y" + game.streak );
 	//cycleFrames();
 	//console.getkey();
-		stackFrame.clear();
+	stackFrame.clear();
+	stackFrame.close();
+	stackFrame.invalidate();
+	stackFrame.open();
 	//stackFrame.cycle();
 	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display,bgShaders[game.tileBg])  + game.stackStr;
 	stackFrame.putmsg(game.stackStr);
 	stackFrame.scroll(0,2);
+	//stackFrame.draw();
 	if(game.row + 3 >= stackFrame.height && bufferFrame.height === 1){
 		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
-		stackFrame.cycle();
+		//stackFrame.cycle();
 	}
 	if(speed > 40 && game.streak < 3){
 	speed = parseInt(speed - 5);
