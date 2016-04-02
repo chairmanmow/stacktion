@@ -24,8 +24,7 @@ var db = new JSONClient(serverAddr,serverPort);
 var shaders = ['\1N\1R','\1H\1R','\1H\1Y','\1N\1Y','\1N\1G','\1H\1G','\1H\1C','\1N\1C','\1H\1B','\1N\1B','\1N\1M','\1H\1M','\1H\1R','\1N\1R'];  //help!!! how to use background attributes with these escape sequences \14 for instance doesn't set bg to blue.
 var bgAttr = [BG_BLACK,BG_BLUE,BG_MAGENTA,BG_RED,BG_CYAN,BG_LIGHTGRAY,BG_BROWN];
 var bgShaders = ['\0016','\0015','\0010','\0011','\0014','\0017','\0013','\0012'];
-var symbols = [ascii(176),ascii(177),ascii(178),ascii(219)];  //help!!! array of extended ascii characters, how to encode?
-//var symbols = ['&','#','%','$','=','|','X','G']
+var symbols = [ascii(176),ascii(177),ascii(178),ascii(219)];  
 
 //game control
 
@@ -39,7 +38,6 @@ var startTileSize = 58;
 var masterFrame, topFeedback, bottomFeedback, stackFrame, bufferFrame,tileFrame;
 masterFrame = new Frame(1,1,console.screen_columns,console.screen_rows);
 setFramesInit();
-var frames = [masterFrame,topFeedback,bottomFeedback,stackFrame,bufferFrame,tileFrame];
 
 //Game Object constructor
 function Game(){
@@ -86,7 +84,6 @@ function gameCycle(game,inkey){
 		default: 
 			//debug('moving tile ');
 			game = moveCurrentTile(game);
-			//console.getkey();
 			return game;
 		}
 }
@@ -100,8 +97,6 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 		game.startSwing = game.swing;
 		// check to see if there are any extra rows on the screen and if the stackFrame needs to be raised, tile moved up a row, and buffer height -
 		tileFrame.clear();
-		tileFrame.close();
-		tileFrame.invalidate();
 		//debug('\1h\1ybuffer frame height -> \1w ' + bufferFrame.height);
 		if(bufferFrame.height == 1){
 			tileFrame.attr = bgAttr[game.tileBg];
@@ -114,7 +109,6 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 			tileFrame.width = game.tileLength;
 			tileFrame.move(0,-1);
 			bufferFrame.height = bufferFrame.height - 1;
-			//change the frame size of the tile frame.
 			tileFrame.width = game.tileLength;
 			tileFrame.x = game.currentTile.position[0];
 			game.currentTile.isNew = false;
@@ -122,8 +116,7 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 			debug('\1h\1g\r\n creating new tile @ x = ' + tileFrame.x + ' @ width = ' + tileFrame.width);
 		}	
 		var tileFrameStr = tileFillCharacterStr(game);		
-		tileFrame.open();
-		tileFrame.draw();
+
 		tileFrame.center(tileFrameStr);	
 	} else {  //move the tile if it's not new //fixme why are stacks getting out of range (negative nums / > 80)
 		if(game.swing == 1 && tileFrame.x + tileFrame.width == 80){ // floating right and hits edge of screen, flip direction
@@ -165,11 +158,11 @@ function addTileToStack(thisTile,game){
 				break;
 			} else {
 					nextTile.position[1] = i;
-
 			}
 		}  
 	}
 
+	//go back if these loops are at end (for display stuff, colors, symbols)
 	if(game.symbol >= symbols.length - 1){
 		game.symbol = 0;
 	} else {
@@ -186,10 +179,10 @@ function addTileToStack(thisTile,game){
 	} else {
 		game.shader++;
 	}
-	
 
 	debug('\r\n\1rStart Swing ' + game.startSwing);
 	//debug('shader ' + game.shader + ' val :'  + shaders[game.shader] + " Sample String");
+
 	// *** MAKE UPDATES FOR NEXT MOVE/REFRESH + SCORE; UPDATE GAME OBJECT;
 	game.swing = -(game.swing); // next tile will come the other direction;
 	if(nextTile.position[0] == -1 || nextTile.position[1] < nextTile.position[0] || nextTile.position[1] - nextTile.position[0] < 1){
@@ -197,7 +190,6 @@ function addTileToStack(thisTile,game){
 	} else {
 		game.stack.push(nextTile.position);
 		game.tileLength = nextTile.position[1] - nextTile.position[0] + 1;  //tileWidth
-		var lastTileLength = lastTile[1] - lastTile[0];// + 1;
 		if(game.swing == 1){  // swing to right  // check to adjust the starting position of the next tile;
 			game.currentTile = {position:[1,game.tileLength + 1],display:'&'}
 		} else { // swing to left
@@ -215,15 +207,19 @@ function addTileToStack(thisTile,game){
 				console.beep();
 			}
 			if(game.streak >= 3 && game.tileLength < 75 ){  // tiles grow on streak;
-				speed = speed - 15;
+				speed = speed - 10;
 				game.stack[game.stack.length-1[1]] = game.stack[game.stack.length-1[1]] + 1;
 				game.stack[game.stack.length-1[0]] = game.stack[game.stack.length-1[0]] - 1;
-				game.currentTile.position[1] = game.currentTile.position[1]  + 2;
-				topFeedback.center('Tiles grow!');
+				if(game.swing == 1){
+					game.currentTile.position[1] = game.currentTile.position[1]  + 2;
+
+				} else {
+					game.currentTile.position[0] = game.currentTile.position[0] - 2;
+				}
+				//topFeedback.center('Tiles grow!');
 				nextTile.position[0] = nextTile.position[0] - 1;
-				nextTile.position[1] = nextTile.position[1] + 1;
-				game.tileLength++;
-				game.tilelength++;
+				nextTile.position[1] = nextTile.position[1] + 1;		
+				game.tileLength = game.tileLength + 2;
 			}
 		} else {
 			if(game.streak > 0)
@@ -234,20 +230,12 @@ function addTileToStack(thisTile,game){
 	}
 	topFeedback.clear();
 	topFeedback.center("Rows : \1h\1y" + game.row + " \1w      Streak : \1y" + game.streak );
-	//cycleFrames();
-	//console.getkey();
 	stackFrame.clear();
-	stackFrame.close();
-	stackFrame.invalidate();
-	stackFrame.open();
-	//stackFrame.cycle();
 	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display,bgShaders[game.tileBg])  + game.stackStr;
 	stackFrame.putmsg(game.stackStr);
 	stackFrame.scroll(0,2);
-	//stackFrame.draw();
 	if(game.row + 3 >= stackFrame.height && bufferFrame.height === 1){
 		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
-		//stackFrame.cycle();
 	}
 	if(speed > 40 && game.streak < 3){
 	speed = parseInt(speed - 5);
@@ -260,15 +248,14 @@ function addTileToStack(thisTile,game){
 }
 
 function drawStackString(stackSubArr,char,bgStr){  // takes an array representing a tile with two x coords and draws a line padded by blankspace;
+	var stackString = "";
 	try{
 	if(stackSubArr[0] == -1){
 		return Array(29).join(' ') + "\1h\1r !!! GAME OVER !!! " + Array(29).join(' '); + '\r\n';
 	}
-	var stackString = Array(stackSubArr[0]).join(' ') + (bgStr || '\0010') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + '\0010' + Array(80 - stackSubArr[1] + 1).join(' ');
-	//debug(stackString.length + ' stackStr len from arr -> ' + JSON.stringify(stackSubArr));
+	 stackString = Array(stackSubArr[0]).join(' ') + (bgStr || '\0010') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + '\0010' + Array(80 - stackSubArr[1] + 1).join(' ');
 	} catch(err){
-	//debug(err + 'composing stack string from ' + JSON.stringify(stackSubArr));
-	//stackString = "ERROR";
+		stackString = Array(29).join(' ') + "\1h\1r !!! GAME OVER !!! " + Array(29).join(' '); + '\r\n';
 	}
 	return stackString +'\r\n';
 }
@@ -283,24 +270,19 @@ function main(){
 		myHighScore = getPlayerScores();
 		debug('my high score ' + JSON.stringify(myHighScore));
 		var game = new Game();
-		initFrames(game);
 		showHighScores();
-		topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
+		initFrames(game);
 		bottomFeedback.center('Space to place tile -- "Q" will quit');
-		stackFrame.putmsg(game.stackStr);
+		topFeedback.center('YEAH BOYEEE!!!!  BOOMSHAKALAKA!!');
 		//debugGraphics();
 		while(go){
 			var userInput = console.inkey(null,speed);
 			game = gameCycle(game,userInput);
-			if(game.over){  // fixme : new-game first line doesn't align right with tile frame even though values seem right
+			if(game.over){  
 				bottomFeedback.clear();
-				bottomFeedback.cycle();
 				bottomFeedback.center('GAME OVER!');
 				updateScores(game);
 				bottomFeedback.scroll(0,-1);
-				topFeedback.cycle();
-				//debug(JSON.stringify(game));
-				//bottomFeedback.cycle();
 				cycleFrames();
 				console.getkey();
 				game = new Game();
@@ -310,19 +292,14 @@ function main(){
 				initFrames(game);
 				debugGraphics();
 				bottomFeedback.clear();
-				topFeedback.center("Rows : " + game.row + "    Streak : " + game.streak + "  Speed : " + speed);
+				topFeedback.clear();
+				topFeedback.center("YEE HAW YIPPEE KAY AY!");
 				bottomFeedback.center('Space to place tile -- "Q" will quit');
-				//stackFrame.scroll(0,-2);
-				//stackFrame.clear();
-				//stackFrame.putmsg(game.stackStr);
 				cycleFrames(); 
 				}
 		}
-	}
-
-	catch(err){
+	} catch(err){
 		console.pause();
-
 		console.write('\1rERROR line \1w ' + err.lineNumber + ' \1r' + err + '\n')
 		console.write(JSON.stringify(game));
 		console.pause();
@@ -332,7 +309,6 @@ function main(){
 function showHighScores(){
 	clearFrames();
 	masterFrame.close();
-	//invalidateFrames();
 	setFramesInit();	
 	openFrames();
 	drawFrames();
@@ -348,7 +324,6 @@ function showHighScores(){
 	var response = console.getkey();
 	if(response.toUpperCase() != "Q"){
 			clearFrames();
-			invalidateFrames();
 			speed = startSpeed;
 			stackFrame.clear();
 			bottomFeedback.clear();
@@ -470,8 +445,6 @@ function initFrames(game) {
 		setFramesInit();
 	} 
 	openFrames();
-	//debug('debugging->');
-	//stackFrame.clear();
 	stackFrame.putmsg(game.stackStr); 
 	drawFrames();	
 	cycleFrames();
@@ -492,35 +465,30 @@ function constructHsString(){
 	return str;
 }
 
-function deleteFrames(){
-	for(var f = 0; f < frames.length; f++){
-		frames[f].delete();
-	}
-}
+
 function openFrames(){
-	for(var f = 0; f < frames.length; f++){
-		var aFrame = frames[f];
-		aFrame.open();
-	} 
+	masterFrame.open();
+	topFeedback.open();
+	bottomFeedback.open();
+	stackFrame.open();
+	bufferFrame.open();
 }
 
 function drawFrames(){
-	for(var fr = 0; fr < frames.length; fr++){
-		frames[fr].draw();
-	}
+	masterFrame.draw();
+	topFeedback.draw();
+	bottomFeedback.draw();
+	stackFrame.draw();
+	bufferFrame.draw();
 }
 
-function invalidateFrames(){
-	for(var fr = 1; fr < frames.length; fr++){
-		frames[fr].invalidate();
-	}
-}
 
 function clearFrames(){
-	for(var fr = 1; fr < frames.length; fr++){
-		frames[fr].clear();
-	}
-	masterFrame.cycle();
+	masterFrame.clear();
+	topFeedback.clear();
+	bottomFeedback.clear();
+	stackFrame.clear();
+	bufferFrame.clear();
 }
 
 
