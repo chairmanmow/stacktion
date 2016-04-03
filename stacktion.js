@@ -32,7 +32,7 @@ var dbug = false; //debugging mode
 var startSpeed = 120;
 var speed = startSpeed; //ms control input rate
 var go = true;  // loop exit
-var startTileSize = 58;
+var startTileSize = 50;
 
 //frames
 var masterFrame, topFeedback, bottomFeedback, stackFrame, bufferFrame,tileFrame;
@@ -89,7 +89,16 @@ function gameCycle(game,inkey){
 }
 
 function tileFillCharacterStr(game){
-	return bgShaders[game.tileBg] + shaders[game.shader] + Array(game.tileLength - 1).join(symbols[game.symbol]);
+	var sym = game.symbol + 1;
+	var tileBG = game.tileBg;
+	var theShader = game.shader + 1;
+	if(sym >= symbols.length)
+		 sym = 0;
+	if(tileBG >= bgShaders.length)
+		tileBG = 0;
+	if(theShader >= shaders.length)
+		theShader= 0;
+	return bgShaders[tileBG] + shaders[theShader] + Array(game.tileLength - 1).join(symbols[sym]);
 }
 
 function moveCurrentTile(game){ //changes the tile position and cycles frames if no input detected
@@ -206,8 +215,8 @@ function addTileToStack(thisTile,game){
 			for(var i = 0; i < game.streak && i < 3;i++){
 				console.beep();
 			}
+			speed = speed - game.streak;
 			if(game.streak >= 3 && game.tileLength < 75 ){  // tiles grow on streak;
-				speed = speed - (10-game.streak);
 				game.stack[game.stack.length-1[1]] = game.stack[game.stack.length-1[1]] + 1;
 				game.stack[game.stack.length-1[0]] = game.stack[game.stack.length-1[0]] - 1;
 				if(game.swing == 1){
@@ -240,8 +249,8 @@ function addTileToStack(thisTile,game){
 	if(game.row + 3 >= stackFrame.height && bufferFrame.height === 1){
 		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
 	}
-	if(speed > 40 && game.streak < 3){
-		if(speed > 1.75 * startSpeed){
+	if(speed > 20 && game.streak < 3){
+		if(speed >= 1.2 * startSpeed){
 			speed = parseInt(speed - 10);
 		} else {
 		speed = parseInt(speed - 5);
@@ -351,6 +360,7 @@ function getHighScores(){
 
 	if(highScores == undefined){
 	    bufferFrame.center("Creating High Score File");
+	    console.getkey;
 	    var blankArray = [];
 	    db.write("STACKTION","STACKTION.HISCORES",blankArray,2);
 	    db.cycle();
