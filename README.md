@@ -87,7 +87,7 @@ Multiple Concurrent Users: Yes
 	file (create one if it doesn't already exist):
 
 	[STACKTION]
-	dir=../xtrn/lemons/
+	dir=../xtrn/stacktion/
 
 	Edit the 'stackionServer.ini' file , To configure Stacktion 
 	to connect to a JSON-DB server at 127.0.0.1 on port 10088. If your JSON
