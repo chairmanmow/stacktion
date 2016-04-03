@@ -29,7 +29,7 @@ var symbols = [ascii(176),ascii(177),ascii(178),ascii(219)];
 //game control
 
 var dbug = false; //debugging mode
-var startSpeed = 100;
+var startSpeed = 120;
 var speed = startSpeed; //ms control input rate
 var go = true;  // loop exit
 var startTileSize = 58;
@@ -99,7 +99,7 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 		tileFrame.clear();
 		//debug('\1h\1ybuffer frame height -> \1w ' + bufferFrame.height);
 		if(bufferFrame.height == 1){
-			tileFrame.attr = bgAttr[game.tileBg];
+			//tileFrame.attr = bgAttr[game.tileBg];
 			tileFrame.width = game.tileLength;
 			tileFrame.x = game.currentTile.position[0];
 			game.currentTile.isNew = false;
@@ -113,7 +113,7 @@ function moveCurrentTile(game){ //changes the tile position and cycles frames if
 			tileFrame.x = game.currentTile.position[0];
 			game.currentTile.isNew = false;
 			stackFrame.scroll(0,-3);	
-			debug('\1h\1g\r\n creating new tile @ x = ' + tileFrame.x + ' @ width = ' + tileFrame.width);
+			//debug('\1h\1g\r\n creating new tile @ x = ' + tileFrame.x + ' @ width = ' + tileFrame.width);
 		}	
 		var tileFrameStr = tileFillCharacterStr(game);		
 
@@ -180,7 +180,7 @@ function addTileToStack(thisTile,game){
 		game.shader++;
 	}
 
-	debug('\r\n\1rStart Swing ' + game.startSwing);
+	//debug('\r\n\1rStart Swing ' + game.startSwing);
 	//debug('shader ' + game.shader + ' val :'  + shaders[game.shader] + " Sample String");
 
 	// *** MAKE UPDATES FOR NEXT MOVE/REFRESH + SCORE; UPDATE GAME OBJECT;
@@ -198,16 +198,16 @@ function addTileToStack(thisTile,game){
 		game.currentTile.isNew = true;
 		game.row++;
 		//debug('last tile - > : ' + JSON.stringify(lastTile) + '\1h  this tile : ' + JSON.stringify(thisTile.position));
-		debug('\r\n\1c\1h incoming tile position \1n' + JSON.stringify(thisTile.position) + ' \1h compared to \1n ' + JSON.stringify(lastTile) + 'on the stack.  Results in an overlap of \1n' + JSON.stringify(nextTile.position));
-		debug('\r\nthe game has detected a next tilelength of ' + game.tileLength + ' . Checking for match'); 
+		//debug('\r\n\1c\1h incoming tile position \1n' + JSON.stringify(thisTile.position) + ' \1h compared to \1n ' + JSON.stringify(lastTile) + 'on the stack.  Results in an overlap of \1n' + JSON.stringify(nextTile.position));
+		//debug('\r\nthe game has detected a next tilelength of ' + game.tileLength + ' . Checking for match'); 
 		if(nextTile.position[1] - nextTile[0] >= lastTile[1] - lastTile[0] || (nextTile.position[0] == lastTile[0] && nextTile.position[1] == lastTile[1])){
-			debug('\1gTRUE!')
+			//debug('\1gTRUE!')
 			game.streak++;
 			for(var i = 0; i < game.streak && i < 3;i++){
 				console.beep();
 			}
 			if(game.streak >= 3 && game.tileLength < 75 ){  // tiles grow on streak;
-				speed = speed - 10;
+				speed = speed - (10-game.streak);
 				game.stack[game.stack.length-1[1]] = game.stack[game.stack.length-1[1]] + 1;
 				game.stack[game.stack.length-1[0]] = game.stack[game.stack.length-1[0]] - 1;
 				if(game.swing == 1){
@@ -224,13 +224,16 @@ function addTileToStack(thisTile,game){
 		} else {
 			if(game.streak > 0)
 				speed = speed + 10;
-			debug('\1rFALSE!');
+			//debug('\1rFALSE!');
 			game.streak = 0;
 		} // update the game object for moveCurrentTile;
 	}
 	topFeedback.clear();
 	topFeedback.center("Rows : \1h\1y" + game.row + " \1w      Streak : \1y" + game.streak );
 	stackFrame.clear();
+	if(game.row + 2 > stackFrame.height){
+		game.stackStr = trimStackString(game.stackStr,bottomFeedback,true);
+	}
 	game.stackStr = shaders[game.shader] + drawStackString(nextTile.position,nextTile.display,bgShaders[game.tileBg])  + game.stackStr;
 	stackFrame.putmsg(game.stackStr);
 	stackFrame.scroll(0,2);
@@ -238,10 +241,14 @@ function addTileToStack(thisTile,game){
 		stackFrame.scroll(0,(stackFrame.height - game.row - 6));
 	}
 	if(speed > 40 && game.streak < 3){
-	speed = parseInt(speed - 5);
+		if(speed > 1.75 * startSpeed){
+			speed = parseInt(speed - 10);
+		} else {
+		speed = parseInt(speed - 5);
+	}
 	} else {
-		if(game.streak < 3)
-			speed = parseInt(speed + game.row);
+		if(game.streak <= 0) // don't give time boost if on a run
+			speed = parseInt(speed + (game.row/(game.tileLength * 2) * 10));
 	}
 	
 	return game;
@@ -253,11 +260,19 @@ function drawStackString(stackSubArr,char,bgStr){  // takes an array representin
 	if(stackSubArr[0] == -1){
 		return Array(29).join(' ') + "\1h\1r !!! GAME OVER !!! " + Array(29).join(' '); + '\r\n';
 	}
-	 stackString = Array(stackSubArr[0]).join(' ') + (bgStr || '\0010') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + '\0010' + Array(80 - stackSubArr[1] + 1).join(' ');
+	 stackString = Array(stackSubArr[0]).join(' ') + (bgStr || '\0010') + Array(stackSubArr[1] - stackSubArr[0]).join(char) + '\0010' + Array(80 - stackSubArr[1]).join(' ') + '\0010\001K\1n.';
 	} catch(err){
 		stackString = Array(29).join(' ') + "\1h\1r !!! GAME OVER !!! " + Array(29).join(' '); + '\r\n';
 	}
 	return stackString +'\r\n';
+}
+
+function trimStackString(gameStackStr){
+	var arr = gameStackStr.split('.');
+	debug('trim stack rows from arr ' + arr.length);
+	arr.pop();
+	gameStackStr = arr.join('.');
+	return gameStackStr;
 }
 
 function main(){
@@ -266,16 +281,13 @@ function main(){
 		masterFrame.cycle();
 		getHighScores();
 		bufferFrame.clear();
-		debug('high scores ' + JSON.stringify(highScores));
 		myHighScore = getPlayerScores();
-		debug('my high score ' + JSON.stringify(myHighScore));
 		var game = new Game();
 		showHighScores();
 		initFrames(game);
 		bottomFeedback.center('Space to place tile -- "Q" will quit');
 		topFeedback.center('YEAH BOYEEE!!!!  BOOMSHAKALAKA!!');
 		masterFrame.cycle();
-		//debugGraphics();
 		while(go){
 			var userInput = console.inkey(null,speed);
 			game = gameCycle(game,userInput);
@@ -290,12 +302,13 @@ function main(){
 				showHighScores();
 				masterFrame.close();
 				setFramesInit();
+				masterFrame.open();
 				initFrames(game);
-				debugGraphics();
 				bottomFeedback.clear();
 				topFeedback.clear();
 				topFeedback.center("YEE HAW YIPPEE KAY AY!");
 				bottomFeedback.center('Space to place tile -- "Q" will quit');
+				drawFrames();
 				masterFrame.cycle(); 
 				}
 		}
@@ -306,6 +319,7 @@ function main(){
 		console.pause();
 	}
 }
+
 
 function showHighScores(){
 	clearFrames();
@@ -461,9 +475,11 @@ function constructHsString(){
 	return str;
 }
 
+
 function drawFrames(){
 	masterFrame.draw();
 	topFeedback.draw();
+	//tileFrame.draw();
 	bottomFeedback.draw();
 	stackFrame.draw();
 	bufferFrame.draw();
@@ -471,17 +487,22 @@ function drawFrames(){
 function clearFrames(){
 	topFeedback.clear();
 	bottomFeedback.clear();
+	tileFrame.clear();
 	stackFrame.clear();
 	bufferFrame.clear();
 }
 
-function debug(message,frame){
+function debug(message,frame,pause){
 	if(dbug == true){
 		if(!frame){
 			frame = bufferFrame;
 		}
+	frame.clear();
 	frame.putmsg(message);
 	frame.cycle();
+	if(pause){
+		console.getKey();
+	}
 	}
 }
 
