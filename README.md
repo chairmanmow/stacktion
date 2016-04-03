@@ -41,6 +41,9 @@ to update everything, backing up your BBS is a good idea.)
 
 3) Installation
 ---------------
+Download the contents of this project ("stacktion.js" & "stacktionServer.ini") to a directory ../xtrn/stacktion
+
+Make sure both 
 
 In 'scfg' (that's BBS->Configure from the Synchronet Control Panel in Windows),
 go to "External Programs -> Online Programs (Doors)" and select the area you
