@@ -63,7 +63,7 @@ Multiple Concurrent Users: Yes
 		I host.  To do so, use the included file or called 'stacktionServer.ini' in the Stacktion game
 		directory, which should have the following two lines:
 
-		host = grudgedu.synchro.net
+		host = futureland.today
 		port = 10088
 
 
